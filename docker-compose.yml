@@ -1,0 +1,119 @@
+# ============================================================
+# ESIC Hospital Management System — Docker Compose
+# ============================================================
+# Development environment: starts all services with one command.
+# Usage: docker compose up
+# See docs/02-tech-stack.md §5 for the full local dev workflow.
+# ============================================================
+
+services:
+  # --- PostgreSQL 15 ---
+  # Primary data store for all application entities.
+  # Data persists in a named volume across container restarts.
+  postgres:
+    image: postgres:15-alpine
+    container_name: esic-hms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: esic_user
+      POSTGRES_PASSWORD: esic_password
+      POSTGRES_DB: esic_hms
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U esic_user -d esic_hms']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - esic-network
+
+  # --- Redis 7 ---
+  # Used for OPD queue token counters (atomic INCR),
+  # BullMQ job queues (expiry scan, low-stock alerts),
+  # and short-lived session/cache data.
+  redis:
+    image: redis:7-alpine
+    container_name: esic-hms-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    command: redis-server --appendonly yes
+    networks:
+      - esic-network
+
+  # --- NestJS API ---
+  # Backend application server.
+  # Depends on postgres and redis being healthy before starting.
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: esic-hms-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://esic_user:esic_password@postgres:5432/esic_hms
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      API_PORT: 3000
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./apps/api/src:/app/src
+      - ./apps/api/prisma:/app/prisma
+      - ./apps/api/test:/app/test
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - esic-network
+
+  # --- React Web App ---
+  # Frontend development server with hot module replacement.
+  # Proxies /api requests to the API container.
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: esic-hms-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://api:3000
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./apps/web/src:/app/src
+      - ./apps/web/public:/app/public
+      - ./apps/web/index.html:/app/index.html
+      - /app/node_modules
+    depends_on:
+      - api
+    networks:
+      - esic-network
+
+# --- Named volumes for data persistence ---
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# --- Network ---
+networks:
+  esic-network:
+    driver: bridge

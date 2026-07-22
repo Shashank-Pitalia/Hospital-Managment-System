@@ -1,0 +1,91 @@
+# ============================================================
+# ESIC Hospital Management System — CI Pipeline
+# ============================================================
+# Runs lint, typecheck, and tests on every push to main and on
+# all pull requests. Fails the build if any step fails.
+# See docs/04-phases-and-prompts.md Phase 0 acceptance criteria.
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9.15.4'
+
+jobs:
+  ci:
+    name: Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # PostgreSQL for API E2E tests
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: esic_user
+          POSTGRES_PASSWORD: esic_password
+          POSTGRES_DB: esic_hms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U esic_user -d esic_hms_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      # Redis for API tests
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://esic_user:esic_password@localhost:5432/esic_hms_test
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: cd apps/api && npx prisma generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test

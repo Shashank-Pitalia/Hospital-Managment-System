@@ -1,0 +1,19 @@
+# Build outputs
+dist/
+build/
+.next/
+
+# Dependencies
+node_modules/
+
+# Prisma generated
+apps/api/prisma/migrations/
+
+# Package manager
+pnpm-lock.yaml
+
+# Coverage
+coverage/
+
+# Docker
+.docker/

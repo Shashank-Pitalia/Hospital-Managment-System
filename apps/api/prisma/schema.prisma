@@ -1,0 +1,374 @@
+// ============================================================
+// ESIC Hospital Management System — Prisma Schema
+// ============================================================
+// Phase 1: Core Data Model & RBAC Foundation
+// Includes Identity, Employee, Patient Profile, Hospital UID,
+// Employment Type, Post, Grade, User, Role, Permission, Audit Log.
+// See docs/03-data-model.md §1–2 & §10 for field specifications.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------
+
+enum EmploymentTypeCode {
+  PERMANENT
+  CONTRACTUAL
+}
+
+enum VisitType {
+  OPD
+  IPD
+}
+
+enum VisitStatus {
+  OPEN
+  CLOSED
+}
+
+enum PrescriptionStatus {
+  DRAFT
+  SIGNED
+  PARTIALLY_DISPENSED
+  CLOSED
+}
+
+enum PrescriptionItemStatus {
+  PENDING
+  DISPENSED
+  PARTIALLY_DISPENSED
+}
+
+enum BenefitOutcome {
+  FREE
+  COVERED
+  PAID
+}
+
+enum AdmissionStatus {
+  REQUESTED
+  ELIGIBILITY_CHECKED
+  AWAITING_BED
+  ALLOCATED
+  UNDER_TREATMENT
+  DISCHARGE_APPROVED
+  DISCHARGED
+}
+
+// ------------------------------------------------------------
+// Identity & Access Control (RBAC)
+// ------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  identifier   String    @unique // Email or Staff ID
+  passwordHash String    @map("password_hash")
+  roleId       String    @map("role_id") @db.Uuid
+  employeeId   String?   @unique @map("employee_id") @db.Uuid
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  employee     Employee?   @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String       @unique // Data-driven (e.g., "Reception", "Doctor", "DataEntryOperator")
+  isSystemRole Boolean      @default(false) @map("is_system_role")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  users        User[]
+  permissions  Permission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id        String   @id @default(uuid()) @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  resource  String   // e.g. "Employee", "Prescription", "FacilityEligibilityRule"
+  action    String   // e.g. "create", "read", "update", "delete", "sign", "dispense", "approve"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resource, action])
+  @@map("permissions")
+}
+
+// ------------------------------------------------------------
+// Employee & Patient Identity
+// ------------------------------------------------------------
+
+model EmploymentType {
+  id           String             @id @default(uuid()) @db.Uuid
+  code         EmploymentTypeCode @unique
+  name         String
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  employees    Employee[]
+  benefitRules BenefitRule[]
+
+  @@map("employment_types")
+}
+
+model BenefitRule {
+  id               String         @id @default(uuid()) @db.Uuid
+  employmentTypeId String         @map("employment_type_id") @db.Uuid
+  medicineCategory String?        @map("medicine_category") // Nullable: null/blank = all categories
+  outcome          BenefitOutcome @default(COVERED)
+  active           Boolean        @default(true)
+  version          Int            @default(1)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  employmentType   EmploymentType @relation(fields: [employmentTypeId], references: [id], onDelete: Cascade)
+
+  @@index([employmentTypeId, active])
+  @@map("benefit_rules")
+}
+
+model Post {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  grades    Grade[]
+  employees Employee[]
+
+  @@map("posts")
+}
+
+model Grade {
+  id        String   @id @default(uuid()) @db.Uuid
+  payLevel  String   @map("pay_level")
+  postId    String?  @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post      Post?      @relation(fields: [postId], references: [id], onDelete: SetNull)
+  employees Employee[]
+
+  @@map("grades")
+}
+
+model Employee {
+  id               String   @id @default(uuid()) @db.Uuid
+  employeeId       String   @unique @map("employee_id") // Official Labour Dept ID
+  name             String
+  department       String
+  postId           String   @map("post_id") @db.Uuid
+  gradeId          String   @map("grade_id") @db.Uuid
+  employmentTypeId String   @map("employment_type_id") @db.Uuid
+  contactPhone     String?  @map("contact_phone")
+  contactEmail     String?  @map("contact_email")
+  registrationDate DateTime @default(now()) @map("registration_date")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  post             Post           @relation(fields: [postId], references: [id], onDelete: Restrict)
+  grade            Grade          @relation(fields: [gradeId], references: [id], onDelete: Restrict)
+  employmentType   EmploymentType @relation(fields: [employmentTypeId], references: [id], onDelete: Restrict)
+  
+  user             User?
+  hospitalUid      HospitalUID?
+  patientProfile   PatientProfile?
+  visits           Visit[]
+
+  @@map("employees")
+}
+
+model HospitalUID {
+  id         String   @id @default(uuid()) @db.Uuid
+  uidCode    String   @unique @map("uid_code") // Format: ESIC-{year}-{seq}
+  employeeId String   @unique @map("employee_id") @db.Uuid
+  qrPayload  String   @map("qr_payload")
+  issuedAt   DateTime @default(now()) @map("issued_at")
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("hospital_uids")
+}
+
+model PatientProfile {
+  id                  String   @id @default(uuid()) @db.Uuid
+  employeeId          String   @unique @map("employee_id") @db.Uuid
+  eligibilityCategory String   @default("C") @map("eligibility_category")
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("patient_profiles")
+}
+
+model ManualVerificationCase {
+  id         String   @id @default(uuid()) @db.Uuid
+  employeeId String   @map("employee_id")
+  reason     String
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdBy  String?  @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("manual_verification_cases")
+}
+
+model Visit {
+  id           String         @id @default(uuid()) @db.Uuid
+  employeeId   String         @map("employee_id") @db.Uuid
+  type         VisitType
+  status       VisitStatus    @default(OPEN)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  closedAt     DateTime?      @map("closed_at")
+
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  opdVisit     OPDVisit?
+  diagnoses    Diagnosis[]
+  prescriptions Prescription[]
+  labOrders    LabOrder[]
+  admissions   Admission[]
+
+  @@index([employeeId, status])
+  @@map("visits")
+}
+
+model Department {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  code      String     @unique // e.g., CARDIO, ORTHO, GENMED
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  opdVisits OPDVisit[]
+
+  @@map("departments")
+}
+
+model OPDVisit {
+  id           String      @id @default(uuid()) @db.Uuid
+  visitId      String      @unique @map("visit_id") @db.Uuid
+  departmentId String      @map("department_id") @db.Uuid
+  tokenNumber  String      @map("token_number") // e.g. CARDIO-014
+  calledAt     DateTime?   @map("called_at")
+  closedAt     DateTime?   @map("closed_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  visit        Visit       @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  @@index([departmentId, createdAt])
+  @@map("opd_visits")
+}
+
+model Diagnosis {
+  id                   String   @id @default(uuid()) @db.Uuid
+  visitId              String   @map("visit_id") @db.Uuid
+  doctorId             String   @map("doctor_id") @db.Uuid
+  symptoms             String?  @db.Text
+  examinationNotes     String?  @map("examination_notes") @db.Text
+  diagnosisText        String   @map("diagnosis_text") @db.Text
+  followUpFlag         Boolean  @default(false) @map("follow_up_flag")
+  admissionRecommended Boolean  @default(false) @map("admission_recommended")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  visit                Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("diagnoses")
+}
+
+model Prescription {
+  id        String             @id @default(uuid()) @db.Uuid
+  visitId   String             @map("visit_id") @db.Uuid
+  doctorId  String             @map("doctor_id") @db.Uuid
+  status    PrescriptionStatus @default(DRAFT)
+  signedAt  DateTime?          @map("signed_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  visit     Visit              @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  items     PrescriptionItem[]
+
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String                 @id @default(uuid()) @db.Uuid
+  prescriptionId String                 @map("prescription_id") @db.Uuid
+  medicineName   String                 @map("medicine_name")
+  dose           String
+  frequency      String
+  duration       String
+  benefitOutcome BenefitOutcome         @default(COVERED) @map("benefit_outcome")
+  dispenseStatus PrescriptionItemStatus @default(PENDING) @map("dispense_status")
+
+  prescription   Prescription           @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@map("prescription_items")
+}
+
+model LabOrder {
+  id        String   @id @default(uuid()) @db.Uuid
+  visitId   String   @map("visit_id") @db.Uuid
+  testName  String   @map("test_name")
+  orderedBy String   @map("ordered_by") @db.Uuid
+  status    String   @default("ORDERED")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  visit     Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("lab_orders")
+}
+
+model Admission {
+  id               String          @id @default(uuid()) @db.Uuid
+  visitId          String          @map("visit_id") @db.Uuid
+  status           AdmissionStatus @default(REQUESTED)
+  eligibleCategory String          @default("C") @map("eligible_category")
+  requestedAt      DateTime        @default(now()) @map("requested_at")
+  allocatedAt      DateTime?       @map("allocated_at")
+  dischargedAt     DateTime?       @map("discharged_at")
+
+  visit            Visit           @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@map("admissions")
+}
+
+// ------------------------------------------------------------
+// Audit Log (Append-Only)
+// ------------------------------------------------------------
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  actorRole      String   @map("actor_role") // Denormalized role name
+  action         String   // e.g. "employee.create", "role.update"
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  beforeSnapshot Json?    @map("before_snapshot")
+  afterSnapshot  Json?    @map("after_snapshot")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  actorUser      User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
