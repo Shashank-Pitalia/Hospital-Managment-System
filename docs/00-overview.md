@@ -99,6 +99,11 @@ See `README.md` for the recommended reading order.
 
 ## 4. User roles at a glance
 
+There are **10 roles** in v1, each scoped to the minimum access it needs (least privilege, NFR-USE-01 /
+FR-SEC-04). Roles are **data-driven** (rows in the `Role`/`Permission` tables, see `03-data-model.md` §1),
+not hard-coded — Super Admin can compose an additional narrow role later (e.g., "Billing Clerk") without a
+code deployment.
+
 | Role | Primary responsibility | Detailed in |
 |---|---|---|
 | Reception / Registration Desk | Employee verification, UID generation, visit registration, token creation | `07-functional-spec.md` Module 1–3 |
@@ -108,8 +113,14 @@ See `README.md` for the recommended reading order.
 | Pharmacist | Prescription validation, eligibility check, dispensing, inventory deduction | Module 7 |
 | Store Manager | Central stock, batch control, expiry monitoring, pharmacy distribution | Module 9, 10 |
 | Procurement Officer | Requisitions, approvals, purchase orders, supplier coordination | Module 10 |
+| Data Entry Operator | Restricted, non-clinical CRUD on demographic/master data only (e.g., correcting a name or contact number) — no access to facility/benefit rules, financial config, or audit views | Module 1, 2 |
 | Administrator | Master data, facility rules, benefit rules, reports, monitoring | Module 5, 8, 12 |
-| Super Admin | System-wide configuration, RBAC, integrations, audit oversight | Module 13 |
+| Super Admin | **Full system control** — everything Administrator can do, plus RBAC/permission-matrix management, integrations, audit oversight, and the backend-driven UI/branding configuration (facility logo, display name, color theme — see Module 14) | Module 13, 14 |
+
+**Administrator vs. Data Entry Operator:** these are deliberately separate roles, not one role with a
+toggle. Administrator can edit facility eligibility and benefit rules (money- and policy-impacting
+changes); Data Entry Operator exists so hospital staff can fix routine demographic data entry errors
+without being handed that authority.
 
 ---
 
@@ -129,6 +140,8 @@ See `README.md` for the recommended reading order.
 | **Permanent employee** | Employment type entitled to configured medicine coverage |
 | **Contractual employee** | Employment type entitled to free consultation but must purchase medicine |
 | **Append-only** | A table design where rows are only ever inserted, never updated or deleted — used for audit logs and stock transactions so history can't be silently altered |
+| **Branding config** | The Super-Admin-only, audit-logged settings controlling hospital display name, logo, color theme and footer text shown across the UI and printed documents |
+| **Data Entry Operator** | A role scoped to demographic/master-data corrections only — no facility rule, benefit rule, or financial-config access |
 
 ---
 
@@ -160,6 +173,14 @@ means in a spec that will outlive the person who wrote it.
   *Why:* clinical authority must be enforced by the system, not just by office convention.
 - **Only authorized pharmacy staff dispense medicines.**
   *Why:* same reasoning — dispensing is a controlled action tied to a specific role.
+- **Only Super Admin can change system-wide UI configuration and branding (including the hospital
+  logo), and every change is audit-logged.**
+  *Why:* branding/UI configuration is presented hospital-wide and in print templates (UID cards, receipts,
+  discharge summaries) — an uncontrolled or unaudited change is both a governance and a trust problem.
+- **Data Entry Operator is a distinct, narrower role from Administrator — it cannot touch facility
+  eligibility rules, benefit rules, or financial configuration.**
+  *Why:* letting routine data-entry staff correct a phone number shouldn't require granting them authority
+  over admission-eligibility or billing policy (least privilege, FR-SEC-04).
 - **Every medicine issue creates an inventory transaction.**
   *Why:* without this, stock counts silently drift from reality and the audit trail has gaps.
 - **FEFO governs batch selection.**

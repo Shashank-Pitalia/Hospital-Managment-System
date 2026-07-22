@@ -71,32 +71,43 @@ If you have two developers, this is the natural place to split work.
 **Depends on:** Phase 0 · **Complexity:** M
 
 **Scope:** Employee, PatientProfile, HospitalUID, EmploymentType, Post, Grade, User, Role, Permission,
-AuditLog entities + migrations; JWT auth; RBAC guards; seed script for the 9 roles.
+AuditLog entities + migrations; JWT auth; RBAC guards; seed script for the 10 roles.
 
 **Acceptance criteria**
 - All entities from `docs/03-data-model.md` §1–2 exist as Prisma models with the exact fields/constraints
-  listed (unique `employee_id`, one-to-one `HospitalUID`↔`Employee`).
-- A seed script creates the 9 roles from spec §2 with no manual database editing required.
+  listed (unique `employee_id`, one-to-one `HospitalUID`↔`Employee`, `Role.name` as a string column, not a
+  database enum, with `is_system_role`).
+- A seed script creates the 10 roles from `03-data-model.md` §1 with no manual database editing required,
+  including `DataEntryOperator` seeded with `Employee` create/update permissions only (FR-SEC-13) — verified
+  by a test that a Data Entry Operator token gets 403 on any FacilityEligibilityRule/BenefitRule/Prescription/
+  BrandingConfig route.
 - An authenticated request to a protected route without the right role returns 403, not 500 or silent
   success.
 - Any POST/PUT/DELETE to a protected resource produces exactly one new `AuditLog` row.
 - Login issues both an access token and a refresh token; an expired access token is rejected.
+- Adding a new role (e.g., a test "Billing Clerk" role) is possible by inserting Role + Permission rows
+  alone — no code change or redeploy required (FR-SEC-06).
 
 **Watch-outs**
 - This is the phase where RBAC gets designed once and reused everywhere after — don't special-case guards
   per-route; build one reusable `@Roles(...)` decorator + guard now, since every later phase depends on it.
 - Audit logging bolted on later is much more expensive than building the interceptor now, even though
   there's little to audit yet.
+- Don't model `Role.name` as a Prisma/Postgres enum — that reintroduces the "new role needs a migration"
+  problem this phase is meant to solve. Use a string column with a uniqueness constraint instead.
 
 **Prompt**
 > In the NestJS API, add Prisma models for Employee, PatientProfile, HospitalUID, EmploymentType, Post,
 > Grade, User, Role, Permission and AuditLog, matching the schemas in `docs/03-data-model.md` §1–2 exactly
-> (unique constraint on Employee.employee_id, one-to-one HospitalUID-Employee). Add JWT-based auth (access
-> + refresh tokens) and a reusable `@Roles(...)` decorator + RBAC guard driven by Role/Permission. Seed
-> the 9 roles: Reception, Doctor, Admission Desk, Nurse, Pharmacist, Store Manager, Procurement Officer,
-> Administrator, Super Admin. Add an audit interceptor that writes an AuditLog row (actor, action, entity,
-> before/after snapshot, timestamp) for every write to a protected resource. No UI yet — just the API and
-> a migration I can run. Write a test that confirms a request without the right role is rejected with 403.
+> (unique constraint on Employee.employee_id, one-to-one HospitalUID-Employee, `Role.name` as a string
+> column with `is_system_role`, not a hard-coded enum). Add JWT-based auth (access + refresh tokens) and a
+> reusable `@Roles(...)` decorator + RBAC guard driven by Role/Permission. Seed the 10 roles: Reception,
+> Doctor, Admission Desk, Nurse, Pharmacist, Store Manager, Procurement Officer, Data Entry Operator,
+> Administrator, Super Admin — with Data Entry Operator scoped to create/update on Employee demographic
+> fields only. Add an audit interceptor that writes an AuditLog row (actor, action, entity, before/after
+> snapshot, timestamp) for every write to a protected resource. No UI yet — just the API and a migration I
+> can run. Write tests that confirm (a) a request without the right role is rejected with 403, and (b) a
+> Data Entry Operator is rejected on any facility-rule, benefit-rule, prescription or billing route.
 
 ---
 
@@ -497,35 +508,64 @@ StoreTransfer.
 
 ---
 
-### Phase 15 — Security hardening, audit & governance
+### Phase 15 — Security hardening, governance & system configuration
 **Depends on:** Phase 14 · **Complexity:** L
 
 **Scope:** full RBAC audit, TLS, field-level access restriction on medical records, session controls,
-backup/recovery runbook, secured Labour Dept integration.
+backup/recovery runbook, secured Labour Dept integration, application security hardening (XSS/CSRF/security
+headers/password policy/MFA), security governance program (VAPT + incident response plan + lower-environment
+data masking), and the Super-Admin-only system configuration & branding screen (Module 14).
 
 **Acceptance criteria**
-- A role-by-endpoint matrix is produced (e.g. a spreadsheet or table) covering every route in the API,
-  and every gap found is closed — this matrix is a deliverable of the phase, not just an implicit check.
-- Attempting cross-role actions (Nurse editing billing, Pharmacist editing a diagnosis) is rejected with
-  403 at the API level for every such case in the matrix, verified by tests.
-- Session timeout on inactivity is enforced and tested.
+- A role-by-endpoint matrix is produced (e.g. a spreadsheet or table) covering every route in the API for
+  all 10 roles, and every gap found is closed — this matrix is a deliverable of the phase, not just an
+  implicit check.
+- Attempting cross-role actions (Nurse editing billing, Pharmacist editing a diagnosis, Data Entry Operator
+  touching a facility/benefit rule or BrandingConfig) is rejected with 403 at the API level for every such
+  case in the matrix, verified by tests.
+- Session timeout on inactivity and a concurrent-session limit are enforced and tested; changing a password
+  invalidates all other active sessions (FR-SEC-12).
+- Every response carries HSTS, CSP, X-Content-Type-Options and X-Frame-Options headers, verified by an
+  automated header-assertion test (FR-SEC-09).
+- CSRF tokens are required and validated on every state-changing route (FR-SEC-08).
+- Password policy (complexity + breach-list check) and account lockout after N failed attempts are enforced
+  and tested (FR-SEC-10); Super Admin and Administrator accounts cannot use their edit permissions until
+  TOTP MFA is enrolled (FR-SEC-11).
+- `BrandingConfig` read/write endpoints exist; only Super Admin can write, every write is audit-logged, and
+  the UI/print templates render the default ESIC logo when unset (FR-CFG-01 to FR-CFG-03).
 - A documented, tested backup/recovery runbook exists for Postgres — "tested" meaning a restore has
   actually been performed against a copy, not just documented in theory.
 - `LabourDeptClient`'s real implementation reads credentials from a secrets manager, never from source
   control or a plain `.env` committed to the repo.
+- A Security Incident Response Plan document exists (severity classification, escalation matrix, breach
+  notification timeline) and a VAPT engagement is scheduled/booked — these are governance deliverables of
+  this phase, not deferred to "later."
+- Dev/staging environment refresh scripts run production data through a masking/synthetic-data step before
+  load — verified by confirming no real Employee/PatientProfile PII appears in a fresh staging refresh.
 
 **Watch-outs**
 - This phase is where "we'll get to it later" security gaps from earlier phases surface — budget time to
   actually fix findings, not just document them.
+- Security headers and CSRF protection are easy to add but easy to get subtly wrong (e.g., a CSP that still
+  allows `unsafe-inline`, a CSRF check that only fires on some routes) — test the negative case (header/token
+  missing or wrong) explicitly, not just the happy path.
 
 **Prompt**
-> Produce a role-by-endpoint permission matrix for all 9 roles across every API route, and close any gap
-> (e.g. a nurse should not be able to edit billing; a pharmacist should not be able to edit a diagnosis) —
-> add a test per gap found. Add row/field level restriction so medical record detail is only visible to
-> roles that need it. Add session timeout and single-active-session controls, with a test. Document and
-> test a backup and recovery runbook for Postgres (actually perform a restore against a copy). Move the
-> `LabourDeptClient` mock to a real client with credentials read from a secrets manager, over TLS. Follow
-> spec §20 and `docs/06-requirements.md` NFR-SEC / FR-SEC groups.
+> Produce a role-by-endpoint permission matrix for all 10 roles across every API route, and close any gap
+> (e.g. a nurse should not be able to edit billing; a pharmacist should not be able to edit a diagnosis; a
+> data entry operator should not be able to touch facility/benefit rules or branding config) — add a test
+> per gap found. Add row/field level restriction so medical record detail is only visible to roles that
+> need it. Add session timeout, a concurrent-session limit, and password-change session invalidation, with
+> tests. Add server-side input validation/output encoding on every mutating endpoint, CSRF tokens on
+> state-changing routes, and HSTS/CSP/X-Content-Type-Options/X-Frame-Options headers on every response —
+> add tests asserting these headers/tokens. Add a password policy (complexity + breached-password check)
+> with account lockout, and TOTP MFA gating edit permissions for Super Admin/Administrator. Add a
+> `BrandingConfig` module (`GET/PUT /config/branding`) writable only by Super Admin and audit-logged, per
+> `docs/03-data-model.md` §1a and `docs/07-functional-spec.md` Module 14, with a default-logo fallback.
+> Document and test a backup and recovery runbook for Postgres (actually perform a restore against a copy).
+> Move the `LabourDeptClient` mock to a real client with credentials read from a secrets manager, over TLS.
+> Write a Security Incident Response Plan doc and a data-masking script for non-production refreshes. Follow
+> spec §20 and `docs/06-requirements.md` NFR-SEC / FR-SEC / FR-CFG groups.
 
 ---
 
@@ -554,5 +594,5 @@ per role.
 > → prescription → pharmacy dispensing, and separately admission → bed allocation → discharge. Set up
 > staging deployment via the CI pipeline from Phase 0, wire up Prometheus/Grafana for bed occupancy, queue
 > depth and stock-level metrics, and produce a UAT checklist with one section per role (Reception, Doctor,
-> Admission Desk, Nurse, Pharmacist, Store Manager, Procurement Officer, Administrator, Super Admin),
-> covering every acceptance criterion listed for that role's phases in this document.
+> Admission Desk, Nurse, Pharmacist, Store Manager, Procurement Officer, Data Entry Operator, Administrator,
+> Super Admin), covering every acceptance criterion listed for that role's phases in this document.

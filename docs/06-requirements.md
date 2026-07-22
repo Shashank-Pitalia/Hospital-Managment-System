@@ -34,8 +34,11 @@ Labour Department employee database/API (for identity verification). All other d
 prescriptions, inventory, procurement — is owned and stored by HMS itself.
 
 ### 2.2 User classes
-The nine roles defined in the PRD persona table, each with a distinct permission set (see FR-SEC group
-below and the RBAC matrix produced in build Phase 15).
+The ten roles defined in the PRD persona table (Reception, Doctor, Admission Desk, Nurse, Pharmacist,
+Store Manager, Procurement Officer, Data Entry Operator, Administrator, Super Admin), each with a distinct
+permission set (see FR-SEC group below and the RBAC matrix produced in build Phase 15). Roles are
+data-driven (Role/Permission tables), so additional narrow roles can be composed later without a code
+change (FR-SEC-06).
 
 ### 2.3 Operating environment
 Web application, desktop/laptop browsers at reception, OPD rooms, admission desk, wards, pharmacy and
@@ -182,6 +185,22 @@ admin office. Server-side deployed at the hospital data center or a government-a
 | FR-SEC-03 | The system shall write an immutable audit log entry (actor, action, entity, timestamp) for every critical action: registration, prescription, dispensing, admission, discharge, rule changes, disposal approvals. | Must |
 | FR-SEC-04 | The system shall restrict medical record detail to roles that need it for their function (least privilege). | Must |
 | FR-SEC-05 | The system shall enforce session timeout on inactivity. | Should |
+| FR-SEC-06 | Roles shall be data-driven (Role/Permission records), not hard-coded enums, so Super Admin can compose a new role from existing permissions without a code deployment. | Should |
+| FR-SEC-07 | The system shall validate and sanitize all user input server-side and encode all output, independent of any client-side validation. | Must |
+| FR-SEC-08 | The system shall require an anti-CSRF token (or equivalent same-site + header verification) on every state-changing request. | Must |
+| FR-SEC-09 | The system shall send HSTS, Content-Security-Policy, X-Content-Type-Options and X-Frame-Options headers on every response. | Must |
+| FR-SEC-10 | The system shall enforce a configurable password policy (minimum length/complexity, rejection of breached passwords) and lock an account out after a configurable number of failed login attempts. | Must |
+| FR-SEC-11 | The system shall require multi-factor authentication (TOTP) for Super Admin and Administrator roles, and for any role granted access to benefit-rule or facility-rule editing. | Must |
+| FR-SEC-12 | The system shall limit concurrent active sessions per user and invalidate all other sessions on password change. | Should |
+| FR-SEC-13 | The system shall provide a Data Entry Operator role restricted to create/update of Employee demographic fields (name, contact details) only — with no access to facility rules, benefit rules, prescriptions, or billing. | Must |
+
+### 3.13 System configuration & branding (FR-CFG)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-CFG-01 | The system shall let Super Admin configure hospital display name, logo, color theme and footer text, applied across the UI and printed documents (UID card, receipts, discharge summary), without a code deployment. | Should |
+| FR-CFG-02 | Only the Super Admin role shall be able to write branding configuration; every change shall write an audit log entry (before/after values). | Must |
+| FR-CFG-03 | If no branding configuration is set, the system shall fall back to a default ESIC logo and display name rather than rendering a broken/empty header. | Must |
 
 ---
 
@@ -197,6 +216,9 @@ admin office. Server-side deployed at the hospital data center or a government-a
 | Security | NFR-SEC-01 | All data in transit shall be encrypted (TLS). |
 | Security | NFR-SEC-02 | All medical records at rest shall be stored with encryption appropriate to the hosting environment's data-protection requirements. |
 | Security | NFR-SEC-03 | Passwords/credentials shall never be stored in plaintext; use industry-standard hashing. |
+| Security | NFR-SEC-04 | Non-production environments (dev/test/staging) shall never contain unmasked production PHI — data refreshes shall run through a masking/synthetic-data pipeline. |
+| Security | NFR-SEC-05 | The system shall undergo an annual third-party VAPT (Vulnerability Assessment & Penetration Testing) engagement, with findings remediated per a documented severity-based SLA. |
+| Security | NFR-SEC-06 | A documented Security Incident Response Plan shall exist, covering severity classification, escalation path, and breach-notification timeline consistent with DPDPA 2023. |
 | Auditability | NFR-AUDIT-01 | Audit log records shall be append-only — no update or delete path shall exist for them. |
 | Usability | NFR-USE-01 | Each role's primary screen shall expose only the actions relevant to that role — no cross-role UI clutter. |
 | Usability | NFR-USE-02 | Registration and dispensing — the two highest-frequency transactions — shall be optimized for minimum clicks/keystrokes. |
@@ -237,4 +259,5 @@ Every FR group above maps to one spec section and one build phase for full trace
 | FR-SCM | §12 | Phase 12 |
 | FR-BIL | — (derived from §7 benefit rule) | Phase 13 |
 | FR-DSH | §19 | Phase 14 |
-| FR-SEC | §20 | Phase 15 |
+| FR-SEC | §20 | Phase 1 (FR-SEC-06, FR-SEC-13 role foundation), Phase 15 (remainder) |
+| FR-CFG | — (gap-analysis addition, not in source spec) | Phase 15 |

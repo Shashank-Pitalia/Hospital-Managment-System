@@ -67,8 +67,9 @@ a permanent **Hospital UID** per employee.
 | **Hospital Pharmacist** | Pharmacist | See prescriptions, dispense against the correct batch, know when someone must pay |
 | **Store Manager** | Store Manager | Track batches, get expiry warnings before they become write-offs |
 | **Procurement Officer** | Procurement Officer | Turn low-stock alerts into approved purchase orders quickly |
+| **Data Entry Clerk** | Data Entry Operator | Fix routine demographic/master-data errors without needing facility-rule or billing authority |
 | **Hospital Administrator** | Administrator | Configure facility/benefit rules, watch operational dashboards |
-| **Super Admin** | Super Admin | Control system-wide access, integrations, and audit oversight |
+| **Super Admin** | Super Admin | Full control of the system — access, RBAC/permission matrix, integrations, audit oversight, and backend-driven UI/branding configuration (including the hospital logo) |
 | **Labour Dept Employee** | End beneficiary (not a system user, but the subject of every record) | Fast, correct, dignified care without repeat paperwork |
 
 ## 6. User stories (representative, not exhaustive — see `07-functional-spec.md` for full flows)
@@ -84,6 +85,8 @@ a permanent **Hospital UID** per employee.
 - As a **procurement officer**, I want low-stock medicines to automatically generate a requisition draft so that I don't miss reorder windows.
 - As a **hospital administrator**, I want to edit the post/grade-to-facility mapping in a settings screen so that I never need a developer to apply a policy change.
 - As a **super admin**, I want an immutable audit log of every prescription, dispensing and admission action so that the hospital can respond to any compliance inquiry.
+- As a **super admin**, I want to update the hospital's logo, display name and color theme from a settings screen — not a code deployment — so that branding stays current without engineering involvement.
+- As a **data entry operator**, I want to correct a misspelled name or an outdated phone number without needing Administrator-level access to facility or benefit rules.
 
 ## 7. Scope
 

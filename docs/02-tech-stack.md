@@ -17,7 +17,7 @@ a future engineer doesn't re-litigate a decision without knowing the reasoning a
 | ORM | Prisma | 5.x | Type-safe migrations for a schema this relational (batches, wards, beds, ledgers) |
 | Database | PostgreSQL | 15+ | Strong relational integrity + transactions, required for inventory ledgers and bed allocation correctness |
 | Cache / queue | Redis + BullMQ | Redis 7.x | OPD queue tokens, scheduled expiry scans, low-stock alert jobs |
-| Auth | JWT (access + refresh) + NestJS Guards for RBAC | — | Matches the 9 roles in spec §2; swap in Keycloak/SSO later if hospital IT policy requires it |
+| Auth | JWT (access + refresh) + NestJS Guards for RBAC, TOTP MFA for privileged roles | — | Matches the 10 data-driven roles in `00-overview.md` §4; swap in Keycloak/SSO later if hospital IT policy requires it |
 | QR / UID cards | `qrcode` (generation) + browser camera or USB HID scanner (reading) | `qrcode` ^1.5 | UID/QR is the core repeat-visit identifier (spec §5) |
 | PDF generation | `pdf-lib` or headless Chromium (Puppeteer) | — | Prescriptions, discharge summaries, UID cards, GRNs |
 | Object storage | S3-compatible (MinIO for on-prem, S3 for cloud) | — | QR images, generated PDFs, reports |
@@ -38,14 +38,14 @@ a future engineer doesn't re-litigate a decision without knowing the reasoning a
 - Inventory, billing and admission all require strict transactional integrity (deduct stock, allocate one
   bed to one patient, FEFO batch selection) — Postgres transactions and unique constraints are the
   simplest correct tool.
-- RBAC across 9 roles with per-action authorization is a first-class NestJS Guard pattern, not something
-  bolted on.
+- RBAC across 10 data-driven roles (Role/Permission tables, not hard-coded enums) with per-action
+  authorization is a first-class NestJS Guard pattern, not something bolted on.
 
 ### 2.1 Alternatives considered
 
 | Decision | Chosen | Considered instead | Why not chosen |
 |---|---|---|---|
-| Backend framework | NestJS (Node/TS) | Django (Python) | Equally valid; NestJS's DI + decorator-based guards map more directly onto the 9-role RBAC model without extra libraries. Django is a legitimate substitute if the hospital's IT team already runs Python — see §5. |
+| Backend framework | NestJS (Node/TS) | Django (Python) | Equally valid; NestJS's DI + decorator-based guards map more directly onto the 10-role, data-driven RBAC model without extra libraries. Django is a legitimate substitute if the hospital's IT team already runs Python — see §5. |
 | Backend framework | NestJS (Node/TS) | Spring Boot (Java) | Common in Indian govt tenders; also a legitimate substitute (see §5). Not chosen as the default recommendation only because it has a heavier ceremony cost for a team that hasn't committed to Java already. |
 | Database | PostgreSQL | MySQL | Both are fine relational choices; Postgres was picked for slightly stronger native support for complex constraints and JSON columns (useful for flexible audit-log payloads) — not a hard requirement either way. |
 | Database | PostgreSQL | MongoDB / NoSQL | Rejected outright — this domain is relentlessly relational (batches → stock → transactions, beds → wards → admissions, requisitions → POs → GRNs) and needs multi-row transactional integrity that a document store makes harder, not easier. |

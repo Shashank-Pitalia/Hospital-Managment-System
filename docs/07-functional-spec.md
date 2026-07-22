@@ -55,6 +55,7 @@ flows → Data fields → Business rules → Sample API → Edge cases.** Requir
 - One Employee ID ⇒ exactly one Hospital UID, forever (FR-EMP-03, FR-EMP-06).
 - A UID is never reissued, even if the QR/card is lost — a lost card is a "reprint," not a new UID.
 - Registration failure never silently drops the employee — it always resolves to either success or an escalation case, never a dead end (FR-EMP-02).
+- Post-registration corrections to Name/Department/Contact details may be made by Reception, Data Entry Operator, Administrator, or Super Admin; a Data Entry Operator may **only** touch these demographic fields — not Post/Grade/Employment Type, which drive facility eligibility and benefit rules (FR-SEC-13).
 
 **Sample API**
 
@@ -448,13 +449,61 @@ priority per widget.
 ---
 
 ## Module 13 — Security, RBAC & Audit
-*Satisfies: FR-SEC-01 to FR-SEC-05*
+*Satisfies: FR-SEC-01 to FR-SEC-13*
 
 **Cross-cutting, not a screen** — this module is enforced on every request via:
 - An auth guard requiring a valid session (FR-SEC-02).
-- A permission check per route, keyed to the acting user's role (FR-SEC-01, FR-SEC-04).
-- An audit interceptor that writes an AuditLog row for any request that mutates a critical entity: Employee, HospitalUID, Prescription, Admission, StockTransaction, FacilityEligibilityRule, BenefitRule, disposal actions (FR-SEC-03).
+- A permission check per route, keyed to the acting user's role and resolved against the data-driven Role/Permission tables, not a hard-coded switch statement (FR-SEC-01, FR-SEC-04, FR-SEC-06).
+- An audit interceptor that writes an AuditLog row for any request that mutates a critical entity: Employee, HospitalUID, Prescription, Admission, StockTransaction, FacilityEligibilityRule, BenefitRule, BrandingConfig, disposal actions (FR-SEC-03).
 
 **AuditLog fields:** actor (user + role), action, entity type, entity ID, before/after snapshot (where
 applicable), timestamp, IP/session reference. Append-only — no update or delete endpoint exists for this
 table, by design (NFR-AUDIT-01).
+
+**Application security hardening (FR-SEC-07 to FR-SEC-12):**
+- **Input/output:** every mutating endpoint validates input server-side against a schema (e.g., `class-validator` DTOs); templates encode output by default — no raw HTML interpolation of user-supplied data (FR-SEC-07).
+- **CSRF:** state-changing requests require a synchronizer/double-submit CSRF token in addition to the session cookie (FR-SEC-08).
+- **Security headers:** every response sets `Strict-Transport-Security`, `Content-Security-Policy` (no `unsafe-inline`), `X-Content-Type-Options: nosniff`, and `X-Frame-Options: DENY` (FR-SEC-09).
+- **Password policy:** minimum length/complexity enforced at signup and reset; new passwords are checked against a breached-password list (k-anonymity API); an account locks after a configurable count of consecutive failed logins (FR-SEC-10).
+- **MFA:** Super Admin and Administrator accounts, and any account with facility-rule or benefit-rule edit permission, must enroll TOTP-based MFA before those permissions become active (FR-SEC-11).
+- **Session hardening:** a configurable maximum of concurrent active sessions per user; changing a password immediately invalidates all other active sessions (FR-SEC-12).
+- **Data Entry Operator scope:** the permission check above denies this role at the route level for any facility-rule, benefit-rule, prescription, billing, or audit-log endpoint — enforced the same way as every other role, not via UI hiding alone (FR-SEC-13).
+
+**Sample API (security)**
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/auth/login` | Password check, MFA challenge if enrolled, issues access + refresh token |
+| POST | `/auth/mfa/enroll` | Begin TOTP enrollment for a privileged role |
+| POST | `/auth/logout-all-sessions` | Invalidate all sessions for the current user |
+| GET | `/security/role-permission-matrix` | Super Admin view of the full Role → Permission → Resource matrix |
+
+---
+
+## Module 14 — System Configuration & Branding (Super Admin)
+*Satisfies: FR-CFG-01 to FR-CFG-03*
+
+**Purpose:** give Super Admin a single backend-driven configuration surface for hospital-wide UI branding,
+instead of requiring a code change/redeploy to update the logo, display name, or theme.
+
+**Actors:** Super Admin only.
+
+**Main flow**
+1. Super Admin opens the System Configuration screen.
+2. Super Admin uploads/replaces the hospital logo, edits the display name, color theme and footer text.
+3. System validates the upload (image type/size), saves a new `BrandingConfig` row, and writes an audit log entry with the before/after values.
+4. Every screen and printed template (UID card, receipt, discharge summary) reads branding from this single source, live — no separate deploy needed per surface.
+
+**Data fields (BrandingConfig)** — see `03-data-model.md` for the full schema.
+
+**Business rules**
+- Only Super Admin may write `BrandingConfig`; Administrator and all other roles have read-only access, matching FR-CFG-02.
+- If no `BrandingConfig` row exists yet, the system renders a default ESIC logo/name rather than a blank header (FR-CFG-03).
+- Logo uploads are validated server-side (file type, size limit) before storage — never trust the client-supplied MIME type.
+
+**Sample API**
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/config/branding` | Fetch current branding config (any authenticated role) |
+| PUT | `/config/branding` | Update branding config (Super Admin only, audit-logged) |

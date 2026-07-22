@@ -1,8 +1,9 @@
 # Data Model
 
-34 entities total: the 33 named in spec §18, plus `User`, `Role` and `Permission` (implied by the RBAC
+35 entities total: the 33 named in spec §18, plus `User`, `Role` and `Permission` (implied by the RBAC
 requirement in spec §17/§20 but not spelled out as data entities in the source doc — added here because
-Phase 1 needs them to seed the 9 roles).
+Phase 1 needs them to seed the 10 roles), plus `BrandingConfig` (added per the gap-analysis requirement
+that Super Admin control system-wide UI/branding without a code deployment — see §1a).
 
 This document gives the **full field-level schema** for every entity, grouped by the module that owns
 them (matching `01-architecture.md` §2.1). For *why* a field or constraint exists, see
@@ -29,7 +30,8 @@ Type notation: `uuid`, `string`, `text` (long string), `int`, `decimal`, `boolea
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | id | uuid | yes | PK |
-| name | enum | yes | Reception, Doctor, AdmissionDesk, Nurse, Pharmacist, StoreManager, ProcurementOfficer, Administrator, SuperAdmin |
+| name | string | yes | **Data-driven, not a hard-coded enum** — new roles are added by seed/Super-Admin UI, never a code deployment. Seeded set (10): Reception, Doctor, AdmissionDesk, Nurse, Pharmacist, StoreManager, ProcurementOfficer, DataEntryOperator, Administrator, SuperAdmin |
+| is_system_role | boolean | yes | `true` for the 10 seeded roles (cannot be deleted/renamed); `false` for any custom role Super Admin composes later |
 
 ### Permission
 | Field | Type | Required | Notes |
@@ -38,6 +40,30 @@ Type notation: `uuid`, `string`, `text` (long string), `int`, `decimal`, `boolea
 | role | ref → Role | yes | |
 | resource | string | yes | e.g. `Prescription` |
 | action | enum: create, read, update, sign, dispense, approve, ... | yes | Action vocabulary can extend per resource |
+
+**Business rules**
+- `Role.name` is a string, not a database enum, specifically so Super Admin can add a role (e.g., "Billing Clerk") by inserting Role + Permission rows — no migration required (FR-SEC-06).
+- `DataEntryOperator` is seeded with `Permission` rows scoped to `Employee` (create, update — demographic fields only); it must never be granted `FacilityEligibilityRule`, `BenefitRule`, `Prescription`, `StockTransaction`, `AuditLog`, or `BrandingConfig` permissions (FR-SEC-13).
+- `SuperAdmin` is the only role seeded with write permission on `BrandingConfig` and on `Role`/`Permission` themselves (FR-CFG-02).
+
+---
+
+## 1a. System configuration & branding
+
+### BrandingConfig
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| id | uuid | yes | PK — single active row in v1 (single-hospital scope); becomes facility-scoped if/when multi-tenancy ships |
+| logo_url | string | no | Uploaded file reference; falls back to default ESIC logo when unset (FR-CFG-03) |
+| hospital_display_name | string | yes | Shown in UI header and print templates (UID card, receipt, discharge summary) |
+| primary_color | string | no | Hex color for UI theme |
+| footer_text | string | no | |
+| updated_by | ref → User | yes | Must hold SuperAdmin role (FR-CFG-02) |
+| updated_at | datetime | system | |
+
+**Business rules**
+- Only `SuperAdmin` may write this entity; every write creates an `AuditLog` row with before/after values, the same pattern used for `FacilityEligibilityRule` and `BenefitRule`.
+- Reads are open to all authenticated roles (every screen needs the current branding to render).
 
 ---
 

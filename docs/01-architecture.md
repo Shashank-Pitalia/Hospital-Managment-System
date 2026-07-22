@@ -94,7 +94,7 @@ is the single source of truth for "which module does X belong in" during build.
 | **Inventory & Batch Service** | Medicine, MedicineBatch, PharmacyStock, StockTransaction | Stock queries, expiry scan, quarantine | — |
 | **Supply Chain & Procurement Service** | Supplier, PurchaseRequisition, Approval, PurchaseOrder, GoodsReceiptNote | Requisition, approval, PO, GRN, transfer | Inventory Service |
 | **Billing & Benefit Service** | BenefitRule, BillingTransaction | Benefit evaluation, ledger, receipts | — |
-| **Audit & Security Service** | AuditLog, User, Role, Permission | Auth, RBAC enforcement, audit writes | Observes all other services |
+| **Audit & Security Service** | AuditLog, User, Role, Permission, BrandingConfig | Auth, MFA, RBAC enforcement (data-driven Role/Permission, not hard-coded), audit writes, Super-Admin-only branding config read/write | Observes all other services |
 
 ### 2.2 Why a modular monolith, and when to split it
 
