@@ -64,6 +64,26 @@ enum AdmissionStatus {
   DISCHARGED
 }
 
+enum FacilityCategory {
+  A
+  B
+  C
+  D
+  CONTRACTUAL
+}
+
+enum RoomType {
+  SINGLE
+  SHARED
+  GENERAL
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
 // ------------------------------------------------------------
 // Identity & Access Control (RBAC)
 // ------------------------------------------------------------
@@ -81,6 +101,7 @@ model User {
   role         Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
   employee     Employee?   @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   auditLogs    AuditLog[]
+  facilityRulesCreated FacilityEligibilityRule[]
 
   @@map("users")
 }
@@ -150,8 +171,9 @@ model Post {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  grades    Grade[]
-  employees Employee[]
+  grades        Grade[]
+  employees     Employee[]
+  facilityRules FacilityEligibilityRule[]
 
   @@map("posts")
 }
@@ -163,8 +185,9 @@ model Grade {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  post      Post?      @relation(fields: [postId], references: [id], onDelete: SetNull)
-  employees Employee[]
+  post          Post?                     @relation(fields: [postId], references: [id], onDelete: SetNull)
+  employees     Employee[]
+  facilityRules FacilityEligibilityRule[]
 
   @@map("grades")
 }
@@ -345,8 +368,15 @@ model Admission {
   requestedAt      DateTime        @default(now()) @map("requested_at")
   allocatedAt      DateTime?       @map("allocated_at")
   dischargedAt     DateTime?       @map("discharged_at")
+  wardId           String?         @map("ward_id") @db.Uuid
+  roomId           String?         @map("room_id") @db.Uuid
+  bedId            String?         @map("bed_id") @db.Uuid
 
   visit            Visit           @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  ward             Ward?           @relation(fields: [wardId], references: [id], onDelete: SetNull)
+  room             Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  bed              Bed?            @relation("AdmissionBed", fields: [bedId], references: [id], onDelete: SetNull)
+  currentAdmissionBed Bed?         @relation("CurrentAdmission")
 
   @@map("admissions")
 }
@@ -371,4 +401,75 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ------------------------------------------------------------
+// Facility Eligibility & Admission (IPD) - Wards, Rooms, Beds
+// ------------------------------------------------------------
+
+model Ward {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  category  FacilityCategory
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  rooms      Room[]
+  admissions Admission[]
+
+  @@map("wards")
+}
+
+model Room {
+  id         String   @id @default(uuid()) @db.Uuid
+  wardId     String   @map("ward_id") @db.Uuid
+  roomNumber String   @map("room_number")
+  type       RoomType
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  ward       Ward        @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  beds       Bed[]
+  admissions Admission[]
+
+  @@map("rooms")
+}
+
+model Bed {
+  id                 String    @id @default(uuid()) @db.Uuid
+  roomId             String    @map("room_id") @db.Uuid
+  bedNumber          String    @map("bed_number")
+  status             BedStatus @default(AVAILABLE)
+  currentAdmissionId String?   @unique @map("current_admission_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  room               Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  currentAdmission   Admission? @relation("CurrentAdmission", fields: [currentAdmissionId], references: [id], onDelete: SetNull)
+  admissions         Admission[] @relation("AdmissionBed")
+
+  @@map("beds")
+}
+
+model FacilityEligibilityRule {
+  id              String           @id @default(uuid()) @db.Uuid
+  postId          String?          @map("post_id") @db.Uuid
+  gradeId         String?          @map("grade_id") @db.Uuid
+  category        FacilityCategory
+  wardEligibility String           @map("ward_eligibility") // e.g. "Private Ward"
+  room            String           // e.g. "Single Room"
+  facilityLevel   String           @map("facility_level") // e.g. "Premium"
+  active          Boolean          @default(true)
+  version         Int              @default(1)
+  createdById     String?          @map("created_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  post            Post?            @relation(fields: [postId], references: [id], onDelete: SetNull)
+  grade           Grade?           @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([postId, active])
+  @@index([gradeId, active])
+  @@map("facility_eligibility_rules")
 }

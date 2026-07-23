@@ -1,4 +1,4 @@
-import { PrismaClient, EmploymentTypeCode } from '@prisma/client';
+import { PrismaClient, EmploymentTypeCode, FacilityCategory, RoomType, BedStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -163,22 +163,346 @@ export async function main() {
   console.log(`  ✓ Seeded EmploymentTypes: Permanent & Contractual`);
 
   // 4. Seed Posts & Grades
+  const seniorOfficerPost = await prisma.post.upsert({
+    where: { title: 'Senior Officer' },
+    update: {},
+    create: { title: 'Senior Officer' },
+  });
+
+  const officerPost = await prisma.post.upsert({
+    where: { title: 'Officer' },
+    update: {},
+    create: { title: 'Officer' },
+  });
+
   const clerkPost = await prisma.post.upsert({
     where: { title: 'Clerk' },
     update: {},
     create: { title: 'Clerk' },
   });
 
-  await prisma.grade.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000001' },
+  const assistantPost = await prisma.post.upsert({
+    where: { title: 'Assistant' },
+    update: {},
+    create: { title: 'Assistant' },
+  });
+
+  const supportStaffPost = await prisma.post.upsert({
+    where: { title: 'Support Staff' },
+    update: {},
+    create: { title: 'Support Staff' },
+  });
+
+  const contractWorkerPost = await prisma.post.upsert({
+    where: { title: 'Contract Worker' },
+    update: {},
+    create: { title: 'Contract Worker' },
+  });
+
+  const grade10 = await prisma.grade.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000010' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '00000000-0000-0000-0000-000000000010',
+      payLevel: 'Pay Level 10',
+      postId: seniorOfficerPost.id,
+    },
+  });
+
+  const grade7 = await prisma.grade.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000007' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000007',
+      payLevel: 'Pay Level 7',
+      postId: officerPost.id,
+    },
+  });
+
+  const grade4 = await prisma.grade.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000004' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000004',
       payLevel: 'Pay Level 4',
       postId: clerkPost.id,
     },
   });
+
+  const grade3 = await prisma.grade.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000003' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000003',
+      payLevel: 'Pay Level 3',
+      postId: assistantPost.id,
+    },
+  });
+
+  const grade1 = await prisma.grade.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000001' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000001',
+      payLevel: 'Pay Level 1',
+      postId: supportStaffPost.id,
+    },
+  });
+
+  const gradeContractual = await prisma.grade.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000099' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000099',
+      payLevel: 'Contractual Grade',
+      postId: contractWorkerPost.id,
+    },
+  });
+
   console.log(`  ✓ Seeded sample Posts & Grades`);
+
+  // Seed Wards
+  const privateWard = await prisma.ward.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000101' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000101',
+      name: 'Private Ward',
+      category: FacilityCategory.A,
+    },
+  });
+
+  const semiPrivateWard = await prisma.ward.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000102' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000102',
+      name: 'Semi-Private Ward',
+      category: FacilityCategory.B,
+    },
+  });
+
+  const generalWardC = await prisma.ward.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000103' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000103',
+      name: 'General Ward C',
+      category: FacilityCategory.C,
+    },
+  });
+
+  const generalWardD = await prisma.ward.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000104' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000104',
+      name: 'General Ward D',
+      category: FacilityCategory.D,
+    },
+  });
+
+  const contractualWard = await prisma.ward.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000105' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000105',
+      name: 'Policy Based Ward',
+      category: FacilityCategory.CONTRACTUAL,
+    },
+  });
+
+  console.log(`  ✓ Seeded Wards`);
+
+  // Seed Rooms
+  const singleRoom = await prisma.room.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000201' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000201',
+      wardId: privateWard.id,
+      roomNumber: 'Single-101',
+      type: RoomType.SINGLE,
+    },
+  });
+
+  const sharedRoom = await prisma.room.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000202' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000202',
+      wardId: semiPrivateWard.id,
+      roomNumber: 'Shared-201',
+      type: RoomType.SHARED,
+    },
+  });
+
+  const generalRoomC = await prisma.room.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000203' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000203',
+      wardId: generalWardC.id,
+      roomNumber: 'General-301',
+      type: RoomType.GENERAL,
+    },
+  });
+
+  const generalRoomD = await prisma.room.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000204' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000204',
+      wardId: generalWardD.id,
+      roomNumber: 'General-401',
+      type: RoomType.GENERAL,
+    },
+  });
+
+  const contractualRoom = await prisma.room.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000205' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000205',
+      wardId: contractualWard.id,
+      roomNumber: 'Contract-501',
+      type: RoomType.GENERAL,
+    },
+  });
+
+  console.log(`  ✓ Seeded Rooms`);
+
+  // Seed Beds
+  await prisma.bed.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000301' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000301',
+      roomId: singleRoom.id,
+      bedNumber: 'A1',
+      status: BedStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.bed.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000302' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000302',
+      roomId: sharedRoom.id,
+      bedNumber: 'B1',
+      status: BedStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.bed.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000303' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000303',
+      roomId: generalRoomC.id,
+      bedNumber: 'C1',
+      status: BedStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.bed.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000304' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000304',
+      roomId: generalRoomD.id,
+      bedNumber: 'D1',
+      status: BedStatus.AVAILABLE,
+    },
+  });
+
+  await prisma.bed.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000305' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000305',
+      roomId: contractualRoom.id,
+      bedNumber: 'E1',
+      status: BedStatus.AVAILABLE,
+    },
+  });
+
+  console.log(`  ✓ Seeded Beds`);
+
+  // Seed FacilityEligibilityRules mapping Post -> Category -> Ward -> Room -> Facility level
+  const rules = [
+    {
+      id: 'rule-senior-officer',
+      postId: seniorOfficerPost.id,
+      category: FacilityCategory.A,
+      wardEligibility: 'Private Ward',
+      room: 'Single Room',
+      facilityLevel: 'Premium',
+    },
+    {
+      id: 'rule-officer',
+      postId: officerPost.id,
+      category: FacilityCategory.B,
+      wardEligibility: 'Semi-Private',
+      room: 'Shared Room',
+      facilityLevel: 'Enhanced',
+    },
+    {
+      id: 'rule-clerk',
+      postId: clerkPost.id,
+      category: FacilityCategory.C,
+      wardEligibility: 'General Ward',
+      room: 'General Bed',
+      facilityLevel: 'Standard',
+    },
+    {
+      id: 'rule-assistant',
+      postId: assistantPost.id,
+      category: FacilityCategory.C,
+      wardEligibility: 'General Ward',
+      room: 'General Bed',
+      facilityLevel: 'Standard',
+    },
+    {
+      id: 'rule-support-staff',
+      postId: supportStaffPost.id,
+      category: FacilityCategory.D,
+      wardEligibility: 'General Ward',
+      room: 'General Bed',
+      facilityLevel: 'Standard',
+    },
+    {
+      id: 'rule-contractual',
+      postId: contractWorkerPost.id,
+      category: FacilityCategory.CONTRACTUAL,
+      wardEligibility: 'Policy Based',
+      room: 'General / Policy Based',
+      facilityLevel: 'Limited',
+    },
+  ];
+
+  for (const rule of rules) {
+    const existingRule = await prisma.facilityEligibilityRule.findFirst({
+      where: { postId: rule.postId, active: true },
+    });
+    if (!existingRule) {
+      await prisma.facilityEligibilityRule.create({
+        data: {
+          id: rule.id,
+          postId: rule.postId,
+          category: rule.category,
+          wardEligibility: rule.wardEligibility,
+          room: rule.room,
+          facilityLevel: rule.facilityLevel,
+          active: true,
+          version: 1,
+        },
+      });
+    }
+  }
+
+  console.log(`  ✓ Seeded FacilityEligibilityRules`);
 
   // 5. Seed SuperAdmin User
   const passwordHash = await bcrypt.hash('SuperAdminSecret123!', 10);

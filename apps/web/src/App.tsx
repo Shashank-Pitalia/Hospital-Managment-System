@@ -3,6 +3,7 @@ import { RegistrationScreen } from './screens/registration/RegistrationScreen';
 import { LookupScreen } from './screens/lookup/LookupScreen';
 import { OpdQueueScreen } from './screens/opd/OpdQueueScreen';
 import { DoctorConsoleScreen } from './screens/doctor/DoctorConsoleScreen';
+import { FacilityRulesScreen } from './screens/admin/FacilityRulesScreen';
 
 interface HealthResponse {
   status: string;
@@ -13,7 +14,7 @@ interface HealthResponse {
 
 function App() {
   const [activeTab, setActiveTab] = useState<
-    'lookup' | 'doctor-console' | 'opd-queue' | 'registration' | 'status'
+    'lookup' | 'doctor-console' | 'opd-queue' | 'registration' | 'status' | 'facility-rules'
   >('doctor-console');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -69,6 +70,12 @@ function App() {
     loginAs('doctor@esic.gov.in', 'DoctorPass123!', 'Doctor');
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'facility-rules' && userRole !== 'SuperAdmin' && userRole !== 'Administrator') {
+      setActiveTab('doctor-console');
+    }
+  }, [userRole, activeTab]);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-between font-sans text-gray-900">
       {/* Navigation Header */}
@@ -89,20 +96,47 @@ function App() {
           {/* User Session / Quick Login Controls */}
           <div className="flex items-center space-x-3 text-xs">
             {token ? (
-              <div className="bg-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-green-400"></span>
-                <span>
-                  Role: <strong>{userRole}</strong>
-                </span>
+              <div className="flex items-center space-x-2">
+                <div className="bg-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                  <span>
+                    Role: <strong>{userRole}</strong>
+                  </span>
+                </div>
+                <button
+                  onClick={() => loginAs('doctor@esic.gov.in', 'DoctorPass123!', 'Doctor')}
+                  disabled={loggingIn}
+                  className={`px-3 py-1.5 rounded-lg text-white font-medium transition-colors ${
+                    userRole === 'Doctor' ? 'bg-white/30 border border-white' : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  Doctor
+                </button>
+                <button
+                  onClick={() => loginAs('superadmin@esic.gov.in', 'SuperAdminSecret123!', 'SuperAdmin')}
+                  disabled={loggingIn}
+                  className={`px-3 py-1.5 rounded-lg text-white font-medium transition-colors ${
+                    userRole === 'SuperAdmin' ? 'bg-white/30 border border-white' : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  SuperAdmin
+                </button>
               </div>
             ) : (
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => loginAs('doctor@esic.gov.in', 'DoctorPass123!', 'Doctor')}
                   disabled={loggingIn}
-                  className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-white font-medium transition-colors"
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium transition-colors"
                 >
                   Login as Doctor
+                </button>
+                <button
+                  onClick={() => loginAs('superadmin@esic.gov.in', 'SuperAdminSecret123!', 'SuperAdmin')}
+                  disabled={loggingIn}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium transition-colors"
+                >
+                  Login as SuperAdmin
                 </button>
               </div>
             )}
@@ -152,7 +186,7 @@ function App() {
             >
               📋 Registration & UID
             </button>
-            <button
+             <button
               onClick={() => setActiveTab('status')}
               className={`px-4 py-2.5 border-b-2 transition-colors ${
                 activeTab === 'status'
@@ -162,6 +196,18 @@ function App() {
             >
               ⚡ System Status
             </button>
+            {(userRole === 'SuperAdmin' || userRole === 'Administrator') && (
+              <button
+                onClick={() => setActiveTab('facility-rules')}
+                className={`px-4 py-2.5 border-b-2 transition-colors ${
+                  activeTab === 'facility-rules'
+                    ? 'border-white text-white font-semibold'
+                    : 'border-transparent text-blue-200 hover:text-white'
+                }`}
+              >
+                ⚙️ Facility Rules
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -187,6 +233,8 @@ function App() {
         {activeTab === 'opd-queue' && <OpdQueueScreen authToken={token} />}
 
         {activeTab === 'registration' && <RegistrationScreen authToken={token} />}
+
+        {activeTab === 'facility-rules' && <FacilityRulesScreen authToken={token} />}
 
         {activeTab === 'status' && (
           <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-6">
