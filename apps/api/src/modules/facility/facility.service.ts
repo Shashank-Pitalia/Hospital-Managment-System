@@ -185,15 +185,12 @@ export class FacilityEligibilityService implements OnModuleInit {
       // Look up employee by UUID or official employee_id
       employee = await this.prisma.employee.findFirst({
         where: {
-          OR: [
-            { id: employeeId },
-            { employeeId: employeeId }
-          ]
+          OR: [{ id: employeeId }, { employeeId: employeeId }],
         },
         include: {
           post: true,
           grade: true,
-        }
+        },
       });
     } catch {
       // Fall through to memory store
@@ -206,7 +203,8 @@ export class FacilityEligibilityService implements OnModuleInit {
       const isSenior = employeeId.toLowerCase().includes('senior') || employeeId.includes('1001');
       const isOfficer = employeeId.toLowerCase().includes('officer') || employeeId.includes('1002');
       const isSupport = employeeId.toLowerCase().includes('support') || employeeId.includes('1004');
-      const isContract = employeeId.toLowerCase().includes('contract') || employeeId.includes('1005');
+      const isContract =
+        employeeId.toLowerCase().includes('contract') || employeeId.includes('1005');
 
       employee = {
         id: employeeId,
@@ -246,9 +244,7 @@ export class FacilityEligibilityService implements OnModuleInit {
     }
 
     if (!rule) {
-      rule = DEV_FACILITY_RULES_STORE.find(
-        (r) => r.gradeId === employee.gradeId && r.active,
-      );
+      rule = DEV_FACILITY_RULES_STORE.find((r) => r.gradeId === employee.gradeId && r.active);
     }
 
     // 2. Try to find active rule matching postId (and gradeId is null)
@@ -267,14 +263,14 @@ export class FacilityEligibilityService implements OnModuleInit {
       }
 
       if (!rule) {
-        rule = DEV_FACILITY_RULES_STORE.find(
-          (r) => r.postId === employee.postId && r.active,
-        );
+        rule = DEV_FACILITY_RULES_STORE.find((r) => r.postId === employee.postId && r.active);
       }
     }
 
     if (!rule) {
-      throw new NotFoundException(`No active FacilityEligibilityRule found for employee post/grade`);
+      throw new NotFoundException(
+        `No active FacilityEligibilityRule found for employee post/grade`,
+      );
     }
 
     return {
@@ -294,10 +290,7 @@ export class FacilityEligibilityService implements OnModuleInit {
           post: true,
           grade: true,
         },
-        orderBy: [
-          { postId: 'asc' },
-          { version: 'desc' },
-        ],
+        orderBy: [{ postId: 'asc' }, { version: 'desc' }],
       });
       if (rules.length > 0) return rules;
     } catch {

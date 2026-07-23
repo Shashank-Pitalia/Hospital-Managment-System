@@ -1,4 +1,11 @@
-import { Injectable, OnModuleInit, NotFoundException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FacilityEligibilityService } from '../facility/facility.service';
 import { AllocateBedDto } from './dto/allocate-bed.dto';
@@ -242,7 +249,7 @@ export class AdmissionService implements OnModuleInit {
    * Enforces database-level concurrency safeguards.
    */
   async allocateBed(id: string, dto: AllocateBedDto, userId?: string) {
-    let admission = await this.findOne(id);
+    const admission = await this.findOne(id);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -257,7 +264,9 @@ export class AdmissionService implements OnModuleInit {
         }
 
         if (bed.status !== BedStatus.AVAILABLE || bed.currentAdmissionId !== null) {
-          throw new ConflictException(`Bed ${bed.bedNumber} is already occupied or under maintenance`);
+          throw new ConflictException(
+            `Bed ${bed.bedNumber} is already occupied or under maintenance`,
+          );
         }
 
         // 2. Perform optimistic update on Bed to block concurrent duplicate requests
@@ -274,7 +283,9 @@ export class AdmissionService implements OnModuleInit {
         });
 
         if (updateCount.count === 0) {
-          throw new ConflictException(`Bed ${bed.bedNumber} has already been allocated by another transaction`);
+          throw new ConflictException(
+            `Bed ${bed.bedNumber} has already been allocated by another transaction`,
+          );
         }
 
         // 3. Update Admission details and status
@@ -321,7 +332,11 @@ export class AdmissionService implements OnModuleInit {
       }
 
       // Simulate conflict for mock E2E test assertion
-      if (DEV_ADMISSIONS_STORE.some((a) => a.bedId === dto.bedId && a.status === AdmissionStatus.UNDER_TREATMENT)) {
+      if (
+        DEV_ADMISSIONS_STORE.some(
+          (a) => a.bedId === dto.bedId && a.status === AdmissionStatus.UNDER_TREATMENT,
+        )
+      ) {
         throw new ConflictException(`Bed is already occupied`);
       }
 
@@ -382,7 +397,9 @@ export class AdmissionService implements OnModuleInit {
   async discharge(id: string, dto: DischargeDto, userId: string, roleName: string) {
     // Spec §8.1 & FR-ADM-05: Discharge requires explicit doctor approval (or SuperAdmin)
     if (roleName !== 'Doctor' && roleName !== 'SuperAdmin') {
-      throw new ForbiddenException(`Discharge approval requires the Doctor role. Access denied for role: ${roleName}`);
+      throw new ForbiddenException(
+        `Discharge approval requires the Doctor role. Access denied for role: ${roleName}`,
+      );
     }
 
     const admission = await this.findOne(id);

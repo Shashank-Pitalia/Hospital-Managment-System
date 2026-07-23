@@ -55,9 +55,7 @@ describe('App', () => {
     statusTabBtn.click();
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Failed to fetch health check. Ensure API server is running.'),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/API Unreachable/i)).toBeInTheDocument();
     });
   });
 });

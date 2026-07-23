@@ -18,10 +18,7 @@ export class FacilityController {
 
   @Post()
   @RequirePermission('FacilityEligibilityRule', 'create')
-  async createRule(
-    @Body() dto: CreateFacilityRuleDto,
-    @CurrentUser() user?: AuthenticatedUser,
-  ) {
+  async createRule(@Body() dto: CreateFacilityRuleDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.service.create(dto, user?.id);
   }
 

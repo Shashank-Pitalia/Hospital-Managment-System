@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { HealthModule } from './health/health.module';
@@ -10,10 +10,16 @@ import { PrescriptionModule } from './modules/prescription/prescription.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { OpdModule } from './modules/opd/opd.module';
 import { AdmissionModule } from './modules/admission/admission.module';
+import { PharmacyModule } from './modules/pharmacy/pharmacy.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { ProcurementModule } from './modules/procurement/procurement.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { BrandingController } from './modules/auth/branding.controller';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RbacGuard } from './common/guards/rbac.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { SecurityMiddleware } from './common/middleware/security.middleware';
 
 @Module({
   imports: [
@@ -27,6 +33,11 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     VisitModule,
     OpdModule,
     AdmissionModule,
+    PharmacyModule,
+    InventoryModule,
+    ProcurementModule,
+    BillingModule,
+    DashboardModule,
   ],
   controllers: [BrandingController],
   providers: [
@@ -44,4 +55,8 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SecurityMiddleware).forRoutes('*');
+  }
+}

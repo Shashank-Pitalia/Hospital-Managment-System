@@ -119,8 +119,18 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-start">
-          <svg className="w-5 h-5 mr-2 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-5 h-5 mr-2 text-red-500 flex-shrink-0 mt-0.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <span>{error}</span>
         </div>
@@ -128,9 +138,25 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
 
       {loading ? (
         <div className="flex justify-center items-center py-12">
-          <svg className="animate-spin h-8 w-8 text-esic-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg
+            className="animate-spin h-8 w-8 text-esic-primary"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
           </svg>
         </div>
       ) : (
@@ -141,7 +167,7 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activeRules.map((rule) => {
                 const ruleHistory = historyRules.filter(
-                  (h) => h.postId === rule.postId && h.gradeId === rule.gradeId
+                  (h) => h.postId === rule.postId && h.gradeId === rule.gradeId,
                 );
 
                 return (
@@ -166,7 +192,9 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
                           )}
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getCategoryBadgeClass(rule.category)}`}>
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getCategoryBadgeClass(rule.category)}`}
+                          >
                             Category {rule.category}
                           </span>
                           <span className="bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded text-[10px] font-bold">
@@ -179,7 +207,9 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
                       <div className="grid grid-cols-3 gap-2 py-3 border-t border-b border-gray-50 my-3 text-xs">
                         <div>
                           <span className="text-gray-400 block">Ward Type</span>
-                          <span className="font-semibold text-gray-800">{rule.wardEligibility}</span>
+                          <span className="font-semibold text-gray-800">
+                            {rule.wardEligibility}
+                          </span>
                         </div>
                         <div>
                           <span className="text-gray-400 block">Room Class</span>
@@ -215,7 +245,9 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
           {/* Version History Table */}
           {historyRules.length > 0 && (
             <div className="space-y-4 pt-4 border-t border-gray-200">
-              <h3 className="text-lg font-bold text-gray-800">Historical Audit Records (Inactive Rules)</h3>
+              <h3 className="text-lg font-bold text-gray-800">
+                Historical Audit Records (Inactive Rules)
+              </h3>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 text-gray-500 uppercase tracking-wider text-xs font-semibold">
@@ -242,7 +274,9 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">v{hRule.version}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${getCategoryBadgeClass(hRule.category)}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-semibold border ${getCategoryBadgeClass(hRule.category)}`}
+                          >
                             {hRule.category}
                           </span>
                         </td>
@@ -269,7 +303,8 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
             <div className="bg-esic-primary text-white px-6 py-4">
               <h3 className="font-bold text-lg">Modify Facility Rule</h3>
               <p className="text-xs text-blue-100">
-                Updating {editingRule.post?.title || 'this rule'} will automatically create version {editingRule.version + 1}.
+                Updating {editingRule.post?.title || 'this rule'} will automatically create version{' '}
+                {editingRule.version + 1}.
               </p>
             </div>
 
@@ -281,7 +316,9 @@ export const FacilityRulesScreen: React.FC<FacilityRulesScreenProps> = ({ authTo
                 </label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
+                  onChange={(e) =>
+                    setCategory(e.target.value as 'A' | 'B' | 'C' | 'D' | 'CONTRACTUAL')
+                  }
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-esic-primary focus:border-transparent transition-all"
                 >
                   <option value="A">A — Senior Officers</option>

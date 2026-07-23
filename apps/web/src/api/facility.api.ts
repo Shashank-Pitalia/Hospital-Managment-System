@@ -63,9 +63,12 @@ export async function resolveFacilityRule(
   ruleId: string;
   version: number;
 }> {
-  const res = await fetch(`/api/facility-rules/resolve?employeeId=${encodeURIComponent(employeeId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(
+    `/api/facility-rules/resolve?employeeId=${encodeURIComponent(employeeId)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
   if (!res.ok) {
     throw new Error('Failed to resolve facility eligibility rule');
   }

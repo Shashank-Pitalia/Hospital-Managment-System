@@ -64,6 +64,45 @@ enum AdmissionStatus {
   DISCHARGED
 }
 
+enum StockStatus {
+  IN_STOCK
+  EARLY_WARNING
+  CRITICAL_ALERT
+  EXPIRED
+  QUARANTINED
+  DISPOSED
+}
+
+enum StockTransactionType {
+  DISPENSE
+  RECEIPT
+  TRANSFER
+  DISPOSAL
+}
+
+enum PharmacyLocation {
+  CENTRAL_STORE
+  PHARMACY
+}
+
+enum RequisitionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum POStatus {
+  ISSUED
+  DISPATCHED
+  RECEIVED
+  CLOSED
+}
+
 enum FacilityCategory {
   A
   B
@@ -107,6 +146,12 @@ model User {
   admissionsNurse      Admission[]        @relation("AdmissionNurse")
   admissionNotes       AdmissionNote[]
   dischargeSummaries   DischargeSummary[]
+  stockTransactions    StockTransaction[]
+  raisedRequisitions   PurchaseRequisition[]
+  approvals            Approval[]
+  issuedPOs            PurchaseOrder[]
+  verifiedGRNs         GoodsReceiptNote[]
+  storeTransfers       StoreTransfer[]
 
   @@map("users")
 }
@@ -338,16 +383,19 @@ model Prescription {
 }
 
 model PrescriptionItem {
-  id             String                 @id @default(uuid()) @db.Uuid
-  prescriptionId String                 @map("prescription_id") @db.Uuid
-  medicineName   String                 @map("medicine_name")
-  dose           String
-  frequency      String
-  duration       String
-  benefitOutcome BenefitOutcome         @default(COVERED) @map("benefit_outcome")
-  dispenseStatus PrescriptionItemStatus @default(PENDING) @map("dispense_status")
+  id                String                 @id @default(uuid()) @db.Uuid
+  prescriptionId    String                 @map("prescription_id") @db.Uuid
+  medicineName      String                 @map("medicine_name")
+  dose              String
+  frequency         String
+  duration          String
+  dispensedQuantity Int                    @default(0) @map("dispensed_quantity")
+  benefitOutcome    BenefitOutcome         @default(COVERED) @map("benefit_outcome")
+  dispenseStatus    PrescriptionItemStatus @default(PENDING) @map("dispense_status")
 
-  prescription   Prescription           @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescription      Prescription           @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  stockTransactions StockTransaction[]
+  billingTransactions BillingTransaction[]
 
   @@map("prescription_items")
 }
@@ -509,4 +557,239 @@ model DischargeSummary {
   approver    User      @relation(fields: [approvedBy], references: [id], onDelete: Restrict)
 
   @@map("discharge_summaries")
+}
+
+// ------------------------------------------------------------
+// Inventory, Pharmacy & Dispensing
+// ------------------------------------------------------------
+
+model Supplier {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  contactPerson String?  @map("contact_person")
+  phone         String?
+  email         String?
+  address       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  batches        MedicineBatch[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model Medicine {
+  id          String   @id @default(uuid()) @db.Uuid
+  genericName String   @map("generic_name")
+  brandName   String?  @map("brand_name")
+  category    String   // Matches BenefitRule category
+  strength    String   // e.g. "500mg"
+  dosageForm  String   @map("dosage_form") // e.g. "Tablet"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  batches          MedicineBatch[]
+  requisitionItems RequisitionItem[]
+  poItems          POItem[]
+  grnItems         GRNItem[]
+
+  @@map("medicines")
+}
+
+model MedicineBatch {
+  id                String             @id @default(uuid()) @db.Uuid
+  medicineId        String             @map("medicine_id") @db.Uuid
+  batchNumber       String             @map("batch_number")
+  manufacturer      String
+  supplierId        String?            @map("supplier_id") @db.Uuid
+  manufacturingDate DateTime           @default(now()) @map("manufacturing_date")
+  expiryDate        DateTime           @map("expiry_date")
+  purchasePrice     Decimal            @default(10.00) @map("purchase_price") @db.Decimal(10, 2)
+  issuePrice        Decimal            @map("issue_price") @db.Decimal(10, 2)
+  currentStock      Int                @map("current_stock")
+  minimumStockLevel Int                @default(50) @map("minimum_stock_level")
+  reorderLevel      Int                @default(100) @map("reorder_level")
+  storageLocation   String?            @map("storage_location")
+  stockStatus       StockStatus        @default(IN_STOCK) @map("stock_status")
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  medicine          Medicine           @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  supplier          Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  stockTransactions StockTransaction[]
+  pharmacyStocks    PharmacyStock[]
+  storeTransfers    StoreTransfer[]
+
+  @@index([expiryDate])
+  @@index([stockStatus])
+  @@map("medicine_batches")
+}
+
+model PharmacyStock {
+  id              String           @id @default(uuid()) @db.Uuid
+  medicineBatchId String           @map("medicine_batch_id") @db.Uuid
+  location        PharmacyLocation @default(PHARMACY)
+  quantity        Int
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  batch           MedicineBatch    @relation(fields: [medicineBatchId], references: [id], onDelete: Cascade)
+
+  @@map("pharmacy_stocks")
+}
+
+model StockTransaction {
+  id                 String               @id @default(uuid()) @db.Uuid
+  type               StockTransactionType
+  medicineBatchId    String               @map("medicine_batch_id") @db.Uuid
+  quantity           Int                  // Negative for DISPENSE
+  prescriptionItemId String?              @map("prescription_item_id") @db.Uuid
+  performedBy        String               @map("performed_by") @db.Uuid
+  createdAt          DateTime             @default(now()) @map("created_at")
+
+  batch              MedicineBatch        @relation(fields: [medicineBatchId], references: [id], onDelete: Cascade)
+  user               User                 @relation(fields: [performedBy], references: [id], onDelete: Restrict)
+  prescriptionItem   PrescriptionItem?    @relation(fields: [prescriptionItemId], references: [id], onDelete: SetNull)
+
+  @@map("stock_transactions")
+}
+
+// ------------------------------------------------------------
+// Supply Chain & Procurement
+// ------------------------------------------------------------
+
+model PurchaseRequisition {
+  id               String            @id @default(uuid()) @db.Uuid
+  raisedBy         String            @map("raised_by") @db.Uuid
+  status           RequisitionStatus @default(PENDING)
+  triggeredByAlert Boolean           @default(false) @map("triggered_by_alert")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  raisedByUser     User              @relation(fields: [raisedBy], references: [id])
+  items            RequisitionItem[]
+  approvals        Approval[]
+  purchaseOrders   PurchaseOrder[]
+
+  @@map("purchase_requisitions")
+}
+
+model RequisitionItem {
+  id            String              @id @default(uuid()) @db.Uuid
+  requisitionId String              @map("requisition_id") @db.Uuid
+  medicineId    String              @map("medicine_id") @db.Uuid
+  quantity      Int
+
+  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  medicine      Medicine            @relation(fields: [medicineId], references: [id])
+
+  @@map("requisition_items")
+}
+
+model Approval {
+  id            String              @id @default(uuid()) @db.Uuid
+  requisitionId String              @map("requisition_id") @db.Uuid
+  approvedBy    String              @map("approved_by") @db.Uuid
+  decision      ApprovalDecision
+  notes         String?
+  decidedAt     DateTime            @default(now()) @map("decided_at")
+
+  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  approver      User                @relation(fields: [approvedBy], references: [id])
+
+  @@map("approvals")
+}
+
+model PurchaseOrder {
+  id                String              @id @default(uuid()) @db.Uuid
+  requisitionId     String              @map("requisition_id") @db.Uuid
+  supplierId        String              @map("supplier_id") @db.Uuid
+  issuedBy          String              @map("issued_by") @db.Uuid
+  status            POStatus            @default(ISSUED)
+  issuedAt          DateTime            @default(now()) @map("issued_at")
+
+  requisition       PurchaseRequisition @relation(fields: [requisitionId], references: [id])
+  supplier          Supplier            @relation(fields: [supplierId], references: [id])
+  issuer            User                @relation(fields: [issuedBy], references: [id])
+  items             POItem[]
+  goodsReceiptNotes GoodsReceiptNote[]
+
+  @@map("purchase_orders")
+}
+
+model POItem {
+  id              String        @id @default(uuid()) @db.Uuid
+  purchaseOrderId String        @map("purchase_order_id") @db.Uuid
+  medicineId      String        @map("medicine_id") @db.Uuid
+  quantity        Int
+  unitPrice       Decimal       @map("unit_price") @db.Decimal(10, 2)
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  medicine        Medicine      @relation(fields: [medicineId], references: [id])
+
+  @@map("po_items")
+}
+
+model GoodsReceiptNote {
+  id              String        @id @default(uuid()) @db.Uuid
+  purchaseOrderId String        @map("purchase_order_id") @db.Uuid
+  verifiedBy      String        @map("verified_by") @db.Uuid
+  receivedAt      DateTime      @default(now()) @map("received_at")
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  verifier        User          @relation(fields: [verifiedBy], references: [id])
+  items           GRNItem[]
+
+  @@map("goods_receipt_notes")
+}
+
+model GRNItem {
+  id                String           @id @default(uuid()) @db.Uuid
+  grnId             String           @map("grn_id") @db.Uuid
+  medicineId        String           @map("medicine_id") @db.Uuid
+  batchNumber       String           @map("batch_number")
+  manufacturer      String
+  quantity          Int
+  manufacturingDate DateTime         @map("manufacturing_date")
+  expiryDate        DateTime         @map("expiry_date")
+  purchasePrice     Decimal          @map("purchase_price") @db.Decimal(10, 2)
+  issuePrice        Decimal          @map("issue_price") @db.Decimal(10, 2)
+  qualityCheckPass  Boolean          @default(true) @map("quality_check_pass")
+
+  grn               GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  medicine          Medicine         @relation(fields: [medicineId], references: [id])
+
+  @@map("grn_items")
+}
+
+model StoreTransfer {
+  id              String           @id @default(uuid()) @db.Uuid
+  medicineBatchId String           @map("medicine_batch_id") @db.Uuid
+  fromLocation    PharmacyLocation @map("from_location")
+  toLocation      PharmacyLocation @map("to_location")
+  quantity        Int
+  transferredBy   String           @map("transferred_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  batch           MedicineBatch    @relation(fields: [medicineBatchId], references: [id])
+  user            User             @relation(fields: [transferredBy], references: [id])
+
+  @@map("store_transfers")
+}
+
+// ------------------------------------------------------------
+// Billing & Benefit Ledger
+// ------------------------------------------------------------
+
+model BillingTransaction {
+  id                 String           @id @default(uuid()) @db.Uuid
+  prescriptionItemId String           @map("prescription_item_id") @db.Uuid
+  outcome            BenefitOutcome
+  amount             Decimal?         @db.Decimal(10, 2)
+  receiptReference   String?          @map("receipt_reference")
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  prescriptionItem   PrescriptionItem @relation(fields: [prescriptionItemId], references: [id], onDelete: Cascade)
+
+  @@map("billing_transactions")
 }

@@ -41,7 +41,14 @@ export interface BedRecord {
 export interface AdmissionRecord {
   id: string;
   visitId: string;
-  status: 'REQUESTED' | 'ELIGIBILITY_CHECKED' | 'AWAITING_BED' | 'ALLOCATED' | 'UNDER_TREATMENT' | 'DISCHARGE_APPROVED' | 'DISCHARGED';
+  status:
+    | 'REQUESTED'
+    | 'ELIGIBILITY_CHECKED'
+    | 'AWAITING_BED'
+    | 'ALLOCATED'
+    | 'UNDER_TREATMENT'
+    | 'DISCHARGE_APPROVED'
+    | 'DISCHARGED';
   eligibleCategory: string;
   requestedAt: string;
   allocatedAt: string | null;
@@ -99,7 +106,10 @@ export async function fetchAdmissionById(id: string, token: string): Promise<Adm
   return res.json();
 }
 
-export async function resolveAdmissionEligibility(id: string, token: string): Promise<AdmissionRecord> {
+export async function resolveAdmissionEligibility(
+  id: string,
+  token: string,
+): Promise<AdmissionRecord> {
   const res = await fetch(`/api/admissions/${id}/resolve`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

@@ -84,7 +84,7 @@ describe('Admission Bed Allocation Concurrency (e2e)', () => {
     admission: {
       findUnique: jest.fn().mockResolvedValue(mockAdmission),
       findMany: jest.fn().mockResolvedValue([mockAdmission]),
-      update: jest.fn().mockImplementation(async ({ where, data }) => {
+      update: jest.fn().mockImplementation(async ({ data }: any) => {
         return {
           ...mockAdmission,
           ...data,
@@ -92,7 +92,7 @@ describe('Admission Bed Allocation Concurrency (e2e)', () => {
       }),
     },
     bed: {
-      findUnique: jest.fn().mockImplementation(async ({ where }) => {
+      findUnique: jest.fn().mockImplementation(async () => {
         return {
           ...mockBed,
           status: bedOccupied ? BedStatus.OCCUPIED : BedStatus.AVAILABLE,
@@ -100,7 +100,7 @@ describe('Admission Bed Allocation Concurrency (e2e)', () => {
         };
       }),
       // Mock transactional updateMany with optimistic locking logic
-      updateMany: jest.fn().mockImplementation(async ({ where, data }) => {
+      updateMany: jest.fn().mockImplementation(async () => {
         if (bedOccupied) {
           return { count: 0 };
         }
