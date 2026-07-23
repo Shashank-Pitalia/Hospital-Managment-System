@@ -4,6 +4,8 @@ import { LookupScreen } from './screens/lookup/LookupScreen';
 import { OpdQueueScreen } from './screens/opd/OpdQueueScreen';
 import { DoctorConsoleScreen } from './screens/doctor/DoctorConsoleScreen';
 import { FacilityRulesScreen } from './screens/admin/FacilityRulesScreen';
+import { AdmissionDeskScreen } from './screens/admission/AdmissionDeskScreen';
+import { WardStaffScreen } from './screens/admission/WardStaffScreen';
 
 interface HealthResponse {
   status: string;
@@ -14,7 +16,14 @@ interface HealthResponse {
 
 function App() {
   const [activeTab, setActiveTab] = useState<
-    'lookup' | 'doctor-console' | 'opd-queue' | 'registration' | 'status' | 'facility-rules'
+    | 'lookup'
+    | 'doctor-console'
+    | 'opd-queue'
+    | 'registration'
+    | 'status'
+    | 'facility-rules'
+    | 'admission-desk'
+    | 'ward-staff'
   >('doctor-console');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -74,6 +83,23 @@ function App() {
     if (activeTab === 'facility-rules' && userRole !== 'SuperAdmin' && userRole !== 'Administrator') {
       setActiveTab('doctor-console');
     }
+    if (
+      activeTab === 'admission-desk' &&
+      userRole !== 'AdmissionDesk' &&
+      userRole !== 'SuperAdmin' &&
+      userRole !== 'Administrator'
+    ) {
+      setActiveTab('doctor-console');
+    }
+    if (
+      activeTab === 'ward-staff' &&
+      userRole !== 'Nurse' &&
+      userRole !== 'Doctor' &&
+      userRole !== 'SuperAdmin' &&
+      userRole !== 'Administrator'
+    ) {
+      setActiveTab('doctor-console');
+    }
   }, [userRole, activeTab]);
 
   return (
@@ -111,6 +137,24 @@ function App() {
                   }`}
                 >
                   Doctor
+                </button>
+                <button
+                  onClick={() => loginAs('nurse@esic.gov.in', 'NursePass123!', 'Nurse')}
+                  disabled={loggingIn}
+                  className={`px-3 py-1.5 rounded-lg text-white font-medium transition-colors ${
+                    userRole === 'Nurse' ? 'bg-white/30 border border-white' : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  Nurse
+                </button>
+                <button
+                  onClick={() => loginAs('admission@esic.gov.in', 'AdmissionPass123!', 'AdmissionDesk')}
+                  disabled={loggingIn}
+                  className={`px-3 py-1.5 rounded-lg text-white font-medium transition-colors ${
+                    userRole === 'AdmissionDesk' ? 'bg-white/30 border border-white' : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  Desk
                 </button>
                 <button
                   onClick={() => loginAs('superadmin@esic.gov.in', 'SuperAdminSecret123!', 'SuperAdmin')}
@@ -208,6 +252,30 @@ function App() {
                 ⚙️ Facility Rules
               </button>
             )}
+            {(userRole === 'AdmissionDesk' || userRole === 'SuperAdmin' || userRole === 'Administrator') && (
+              <button
+                onClick={() => setActiveTab('admission-desk')}
+                className={`px-4 py-2.5 border-b-2 transition-colors ${
+                  activeTab === 'admission-desk'
+                    ? 'border-white text-white font-semibold'
+                    : 'border-transparent text-blue-200 hover:text-white'
+                }`}
+              >
+                🏨 Admission Desk
+              </button>
+            )}
+            {(userRole === 'Nurse' || userRole === 'Doctor' || userRole === 'SuperAdmin' || userRole === 'Administrator') && (
+              <button
+                onClick={() => setActiveTab('ward-staff')}
+                className={`px-4 py-2.5 border-b-2 transition-colors ${
+                  activeTab === 'ward-staff'
+                    ? 'border-white text-white font-semibold'
+                    : 'border-transparent text-blue-200 hover:text-white'
+                }`}
+              >
+                🏥 Ward Console
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -235,6 +303,10 @@ function App() {
         {activeTab === 'registration' && <RegistrationScreen authToken={token} />}
 
         {activeTab === 'facility-rules' && <FacilityRulesScreen authToken={token} />}
+
+        {activeTab === 'admission-desk' && <AdmissionDeskScreen authToken={token} />}
+
+        {activeTab === 'ward-staff' && <WardStaffScreen authToken={token} userRole={userRole} />}
 
         {activeTab === 'status' && (
           <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-6">

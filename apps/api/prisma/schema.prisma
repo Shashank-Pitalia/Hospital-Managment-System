@@ -102,6 +102,11 @@ model User {
   employee     Employee?   @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   auditLogs    AuditLog[]
   facilityRulesCreated FacilityEligibilityRule[]
+  
+  admissionsDoctor     Admission[]        @relation("AdmissionDoctor")
+  admissionsNurse      Admission[]        @relation("AdmissionNurse")
+  admissionNotes       AdmissionNote[]
+  dischargeSummaries   DischargeSummary[]
 
   @@map("users")
 }
@@ -371,12 +376,18 @@ model Admission {
   wardId           String?         @map("ward_id") @db.Uuid
   roomId           String?         @map("room_id") @db.Uuid
   bedId            String?         @map("bed_id") @db.Uuid
+  assignedDoctorId String?         @map("assigned_doctor_id") @db.Uuid
+  assignedNurseId  String?         @map("assigned_nurse_id") @db.Uuid
 
   visit            Visit           @relation(fields: [visitId], references: [id], onDelete: Cascade)
   ward             Ward?           @relation(fields: [wardId], references: [id], onDelete: SetNull)
   room             Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
   bed              Bed?            @relation("AdmissionBed", fields: [bedId], references: [id], onDelete: SetNull)
   currentAdmissionBed Bed?         @relation("CurrentAdmission")
+  assignedDoctor   User?           @relation("AdmissionDoctor", fields: [assignedDoctorId], references: [id], onDelete: SetNull)
+  assignedNurse    User?           @relation("AdmissionNurse", fields: [assignedNurseId], references: [id], onDelete: SetNull)
+  notes            AdmissionNote[]
+  dischargeSummary DischargeSummary?
 
   @@map("admissions")
 }
@@ -472,4 +483,30 @@ model FacilityEligibilityRule {
   @@index([postId, active])
   @@index([gradeId, active])
   @@map("facility_eligibility_rules")
+}
+
+model AdmissionNote {
+  id          String    @id @default(uuid()) @db.Uuid
+  admissionId String    @map("admission_id") @db.Uuid
+  authoredBy  String    @map("authored_by") @db.Uuid
+  note        String    @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authoredBy], references: [id], onDelete: Restrict)
+
+  @@map("admission_notes")
+}
+
+model DischargeSummary {
+  id          String    @id @default(uuid()) @db.Uuid
+  admissionId String    @unique @map("admission_id") @db.Uuid
+  approvedBy  String    @map("approved_by") @db.Uuid
+  summaryText String    @map("summary_text") @db.Text
+  generatedAt DateTime  @default(now()) @map("generated_at")
+
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  approver    User      @relation(fields: [approvedBy], references: [id], onDelete: Restrict)
+
+  @@map("discharge_summaries")
 }

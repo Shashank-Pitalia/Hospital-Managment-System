@@ -504,25 +504,79 @@ export async function main() {
 
   console.log(`  ✓ Seeded FacilityEligibilityRules`);
 
-  // 5. Seed SuperAdmin User
-  const passwordHash = await bcrypt.hash('SuperAdminSecret123!', 10);
+  // 5. Seed Users
+  const superAdminPasswordHash = await bcrypt.hash('SuperAdminSecret123!', 10);
 
   const superAdminUser = await prisma.user.upsert({
     where: { identifier: 'superadmin@esic.gov.in' },
     update: {
-      passwordHash,
+      passwordHash: superAdminPasswordHash,
       roleId: roleMap['SuperAdmin'],
       active: true,
     },
     create: {
       identifier: 'superadmin@esic.gov.in',
-      passwordHash,
+      passwordHash: superAdminPasswordHash,
       roleId: roleMap['SuperAdmin'],
       active: true,
     },
   });
 
   console.log(`  ✓ Seeded SuperAdmin user: superadmin@esic.gov.in (${superAdminUser.id})`);
+
+  const doctorPasswordHash = await bcrypt.hash('DoctorPass123!', 10);
+  const doctorUser = await prisma.user.upsert({
+    where: { identifier: 'doctor@esic.gov.in' },
+    update: {
+      passwordHash: doctorPasswordHash,
+      roleId: roleMap['Doctor'],
+      active: true,
+    },
+    create: {
+      identifier: 'doctor@esic.gov.in',
+      passwordHash: doctorPasswordHash,
+      roleId: roleMap['Doctor'],
+      active: true,
+    },
+  });
+
+  console.log(`  ✓ Seeded Doctor user: doctor@esic.gov.in (${doctorUser.id})`);
+
+  const nursePasswordHash = await bcrypt.hash('NursePass123!', 10);
+  const nurseUser = await prisma.user.upsert({
+    where: { identifier: 'nurse@esic.gov.in' },
+    update: {
+      passwordHash: nursePasswordHash,
+      roleId: roleMap['Nurse'],
+      active: true,
+    },
+    create: {
+      identifier: 'nurse@esic.gov.in',
+      passwordHash: nursePasswordHash,
+      roleId: roleMap['Nurse'],
+      active: true,
+    },
+  });
+
+  console.log(`  ✓ Seeded Nurse user: nurse@esic.gov.in (${nurseUser.id})`);
+
+  const admissionPasswordHash = await bcrypt.hash('AdmissionPass123!', 10);
+  const admissionUser = await prisma.user.upsert({
+    where: { identifier: 'admission@esic.gov.in' },
+    update: {
+      passwordHash: admissionPasswordHash,
+      roleId: roleMap['AdmissionDesk'],
+      active: true,
+    },
+    create: {
+      identifier: 'admission@esic.gov.in',
+      passwordHash: admissionPasswordHash,
+      roleId: roleMap['AdmissionDesk'],
+      active: true,
+    },
+  });
+
+  console.log(`  ✓ Seeded AdmissionDesk user: admission@esic.gov.in (${admissionUser.id})`);
   console.log('✅ Seed completed successfully!');
 }
 

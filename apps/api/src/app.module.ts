@@ -9,6 +9,7 @@ import { BenefitModule } from './modules/benefit/benefit.module';
 import { PrescriptionModule } from './modules/prescription/prescription.module';
 import { VisitModule } from './modules/visit/visit.module';
 import { OpdModule } from './modules/opd/opd.module';
+import { AdmissionModule } from './modules/admission/admission.module';
 import { BrandingController } from './modules/auth/branding.controller';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RbacGuard } from './common/guards/rbac.guard';
@@ -25,6 +26,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     PrescriptionModule,
     VisitModule,
     OpdModule,
+    AdmissionModule,
   ],
   controllers: [BrandingController],
   providers: [
