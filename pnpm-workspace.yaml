@@ -1,0 +1,4 @@
+# ESIC HMS Monorepo Workspace Configuration
+# Declares workspace packages for pnpm to manage as a unified dependency tree.
+packages:
+  - 'apps/*'

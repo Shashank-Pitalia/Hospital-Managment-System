@@ -1,0 +1,57 @@
+# ============================================================
+# ESIC HMS — Git Ignore
+# ============================================================
+
+# --- Dependencies ---
+node_modules/
+.pnpm-store/
+
+# --- Build outputs ---
+dist/
+build/
+.next/
+*.tsbuildinfo
+
+# --- Environment (NEVER commit secrets) ---
+.env
+.env.local
+.env.*.local
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Testing ---
+coverage/
+*.lcov
+test-results/
+playwright-report/
+
+# --- Turbo ---
+.turbo/
+
+# --- Prisma ---
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# --- Docker ---
+.docker/
+
+# --- Logs ---
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
